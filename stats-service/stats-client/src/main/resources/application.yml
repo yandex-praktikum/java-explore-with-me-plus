@@ -1,0 +1,3 @@
+stats_service:
+  url: http://localhost:9090
+

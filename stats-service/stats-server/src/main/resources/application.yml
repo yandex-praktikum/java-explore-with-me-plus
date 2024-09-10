@@ -1,0 +1,38 @@
+server:
+  port: ${SERVER_PORT:9090}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: default
+  datasource:
+    driverClassName: ${DATASOURCE_DRIVER_CLASS_NAME}
+    url: ${DATASOURCE_URL}
+    username: ${DATASOURCE_USERNAME}
+    password: ${DATASOURCE_PASSWORD}
+  jpa:
+    database: POSTGRESQL
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  sql:
+    init:
+      mode: always
+  data:
+    jpa:
+      repositories:
+        bootstrap-mode: lazy
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:stat;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;
+    username: stat
+    password: stat
