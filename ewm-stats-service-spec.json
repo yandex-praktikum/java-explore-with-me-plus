@@ -1,32 +1,43 @@
 {
   "openapi": "3.0.1",
   "info": {
-    "title": "Stat service API",
-    "version": "v0"
+    "title": "Explore With Me API",
+    "version": "1.0.0",
+    "description": "API для приложения Explore With Me: статистика посещений и система комментариев"
   },
   "servers": [
     {
-      "url": "http://localhost:9090",
-      "description": "Generated server url"
+      "url": "http://localhost:8080",
+      "description": "Локальный сервер"
     }
   ],
   "tags": [
     {
-      "name": "StatsController",
+      "name": "Статистика",
       "description": "API для работы со статистикой посещений"
+    },
+    {
+      "name": "Публичные комментарии",
+      "description": "Публичные эндпоинты для просмотра комментариев"
+    },
+    {
+      "name": "Приватные комментарии",
+      "description": "Эндпоинты для авторизованных пользователей"
+    },
+    {
+      "name": "Административные комментарии",
+      "description": "Эндпоинты для администраторов"
     }
   ],
   "paths": {
     "/hit": {
       "post": {
-        "tags": [
-          "StatsController"
-        ],
-        "summary": "Сохранение информации о том, что к эндпоинту был запрос",
-        "description": "Сохранение информации о том, что на uri конкретного сервиса был отправлен запрос пользователем. Название сервиса, uri и ip пользователя указаны в теле запроса.",
-        "operationId": "hit",
+        "tags": ["Статистика"],
+        "summary": "Сохранение информации о запросе к эндпоинту",
+        "description": "Сохранение информации о том, что на uri конкретного сервиса был отправлен запрос пользователем",
+        "operationId": "saveHit",
         "requestBody": {
-          "description": "данные запроса",
+          "description": "Данные о просмотре",
           "content": {
             "application/json": {
               "schema": {
@@ -39,22 +50,31 @@
         "responses": {
           "201": {
             "description": "Информация сохранена"
+          },
+          "400": {
+            "description": "Неверный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
     },
     "/stats": {
       "get": {
-        "tags": [
-          "StatsController"
-        ],
-        "summary": "Получение статистики по посещениям. Обратите внимание: значение даты и времени нужно закодировать (например используя java.net.URLEncoder.encode) ",
+        "tags": ["Статистика"],
+        "summary": "Получение статистики по посещениям",
+        "description": "Получение статистики за указанный период. Значения дат нужно закодировать (URL encode)",
         "operationId": "getStats",
         "parameters": [
           {
             "name": "start",
             "in": "query",
-            "description": "Дата и время начала диапазона за который нужно выгрузить статистику (в формате \"yyyy-MM-dd HH:mm:ss\")",
+            "description": "Дата и время начала диапазона (формат: yyyy-MM-dd HH:mm:ss)",
             "required": true,
             "schema": {
               "type": "string"
@@ -63,7 +83,7 @@
           {
             "name": "end",
             "in": "query",
-            "description": "Дата и время конца диапазона за который нужно выгрузить статистику (в формате \"yyyy-MM-dd HH:mm:ss\")",
+            "description": "Дата и время конца диапазона (формат: yyyy-MM-dd HH:mm:ss)",
             "required": true,
             "schema": {
               "type": "string"
@@ -72,19 +92,21 @@
           {
             "name": "uris",
             "in": "query",
-            "description": "Список uri для которых нужно выгрузить статистику",
+            "description": "Список URI для фильтрации",
             "required": false,
             "schema": {
               "type": "array",
               "items": {
                 "type": "string"
               }
-            }
+            },
+            "style": "form",
+            "explode": false
           },
           {
             "name": "unique",
             "in": "query",
-            "description": "Нужно ли учитывать только уникальные посещения (только с уникальным ip)",
+            "description": "Учитывать только уникальные IP",
             "required": false,
             "schema": {
               "type": "boolean",
@@ -102,6 +124,617 @@
                   "items": {
                     "$ref": "#/components/schemas/ViewStats"
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверные параметры",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/{eventId}/comments": {
+      "get": {
+        "tags": ["Публичные комментарии"],
+        "summary": "Получение опубликованных комментариев к событию",
+        "description": "Возвращает список опубликованных комментариев с пагинацией",
+        "operationId": "getPublishedComments",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "description": "ID события",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Количество элементов, которые нужно пропустить",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Количество элементов в наборе",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Комментарии получены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CommentDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверные параметры запроса",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Событие не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/{eventId}/comments/{commentId}": {
+      "get": {
+        "tags": ["Публичные комментарии"],
+        "summary": "Получение конкретного комментария",
+        "description": "Возвращает опубликованный комментарий по ID",
+        "operationId": "getPublishedComment",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "description": "ID события",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "commentId",
+            "in": "path",
+            "description": "ID комментария",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Комментарий найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Комментарий не найден или не опубликован",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{userId}/events/{eventId}/comments": {
+      "post": {
+        "tags": ["Приватные комментарии"],
+        "summary": "Создание комментария",
+        "description": "Создание нового комментария к событию. Требуется авторизация",
+        "operationId": "createComment",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "ID пользователя",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "eventId",
+            "in": "path",
+            "description": "ID события",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Данные для создания комментария",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewCommentDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Комментарий создан",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверные данные",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ запрещен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Событие или пользователь не найдены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Приватные комментарии"],
+        "summary": "Получение своих комментариев к событию",
+        "description": "Возвращает все комментарии пользователя к конкретному событию",
+        "operationId": "getUserCommentsForEvent",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "ID пользователя",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "eventId",
+            "in": "path",
+            "description": "ID события",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Комментарии получены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CommentDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Пользователь не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{userId}/events/{eventId}/comments/{commentId}": {
+      "patch": {
+        "tags": ["Приватные комментарии"],
+        "summary": "Редактирование своего комментария",
+        "description": "Редактирование текста своего комментария",
+        "operationId": "updateComment",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "ID пользователя",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "eventId",
+            "in": "path",
+            "description": "ID события",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "commentId",
+            "in": "path",
+            "description": "ID комментария",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Новый текст комментария",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewCommentDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Комментарий обновлен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверные данные",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ запрещен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Комментарий не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Приватные комментарии"],
+        "summary": "Удаление своего комментария",
+        "description": "Логическое удаление комментария (статус меняется на DELETED)",
+        "operationId": "deleteComment",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "ID пользователя",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "eventId",
+            "in": "path",
+            "description": "ID события",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "commentId",
+            "in": "path",
+            "description": "ID комментария",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Комментарий удален"
+          },
+          "403": {
+            "description": "Доступ запрещен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Комментарий не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/comments/pending": {
+      "get": {
+        "tags": ["Административные комментарии"],
+        "summary": "Получение комментариев на модерации",
+        "description": "Возвращает список комментариев со статусом PENDING",
+        "operationId": "getPendingComments",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Количество элементов, которые нужно пропустить",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Количество элементов в наборе",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Комментарии получены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CommentDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/comments/{commentId}": {
+      "patch": {
+        "tags": ["Административные комментарии"],
+        "summary": "Модерация комментария",
+        "description": "Изменение статуса комментария (одобрение/отклонение)",
+        "operationId": "moderateComment",
+        "parameters": [
+          {
+            "name": "commentId",
+            "in": "path",
+            "description": "ID комментария",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Данные для модерации",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentAdminRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Комментарий промодерирован",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверные данные",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Комментарий не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/comments/users/{userId}": {
+      "get": {
+        "tags": ["Административные комментарии"],
+        "summary": "Получение всех комментариев пользователя",
+        "description": "Возвращает все комментарии пользователя с пагинацией",
+        "operationId": "getUserComments",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "ID пользователя",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Количество элементов, которые нужно пропустить",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Количество элементов в наборе",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Комментарии получены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CommentDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Пользователь не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -124,25 +757,26 @@
           },
           "app": {
             "type": "string",
-            "description": "Идентификатор сервиса для которого записывается информация",
+            "description": "Идентификатор сервиса",
             "example": "ewm-main-service"
           },
           "uri": {
             "type": "string",
-            "description": "URI для которого был осуществлен запрос",
+            "description": "URI запроса",
             "example": "/events/1"
           },
           "ip": {
             "type": "string",
-            "description": "IP-адрес пользователя, осуществившего запрос",
-            "example": "192.163.0.1"
+            "description": "IP-адрес пользователя",
+            "example": "192.168.1.1"
           },
           "timestamp": {
             "type": "string",
-            "description": "Дата и время, когда был совершен запрос к эндпоинту (в формате \"yyyy-MM-dd HH:mm:ss\")",
-            "example": "2022-09-06 11:00:23"
+            "description": "Дата и время запроса (формат: yyyy-MM-dd HH:mm:ss)",
+            "example": "2024-01-20 15:30:00"
           }
-        }
+        },
+        "required": ["app", "uri", "ip", "timestamp"]
       },
       "ViewStats": {
         "type": "object",
@@ -161,7 +795,112 @@
             "type": "integer",
             "description": "Количество просмотров",
             "format": "int64",
-            "example": 6
+            "example": 150
+          }
+        }
+      },
+      "CommentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "ID комментария",
+            "format": "int64",
+            "example": 1
+          },
+          "text": {
+            "type": "string",
+            "description": "Текст комментария",
+            "example": "Отличное мероприятие! Обязательно приду в следующий раз."
+          },
+          "eventId": {
+            "type": "integer",
+            "description": "ID события",
+            "format": "int64",
+            "example": 5
+          },
+          "authorId": {
+            "type": "integer",
+            "description": "ID автора",
+            "format": "int64",
+            "example": 10
+          },
+          "authorName": {
+            "type": "string",
+            "description": "Имя автора",
+            "example": "Иван Иванов"
+          },
+          "status": {
+            "type": "string",
+            "description": "Статус комментария",
+            "enum": ["PENDING", "PUBLISHED", "REJECTED", "DELETED"],
+            "example": "PUBLISHED"
+          },
+          "created": {
+            "type": "string",
+            "description": "Дата создания (формат: yyyy-MM-dd HH:mm:ss)",
+            "example": "2024-01-20 15:30:00"
+          },
+          "edited": {
+            "type": "string",
+            "description": "Дата редактирования (формат: yyyy-MM-dd HH:mm:ss)",
+            "example": "2024-01-20 16:45:00"
+          },
+          "moderatorMessage": {
+            "type": "string",
+            "description": "Сообщение модератора",
+            "example": "Комментарий нарушает правила сообщества"
+          }
+        }
+      },
+      "NewCommentDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Текст комментария (10-2000 символов)",
+            "example": "Отличное мероприятие!",
+            "minLength": 10,
+            "maxLength": 2000
+          }
+        },
+        "required": ["text"]
+      },
+      "CommentAdminRequest": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Новый статус комментария",
+            "enum": ["PUBLISHED", "REJECTED"],
+            "example": "PUBLISHED"
+          },
+          "moderatorMessage": {
+            "type": "string",
+            "description": "Сообщение модератора",
+            "example": "Одобрено",
+            "maxLength": 500
+          }
+        },
+        "required": ["status"]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Сообщение об ошибке",
+            "example": "Событие не найдено"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "Время возникновения ошибки",
+            "example": "2024-01-20T15:30:00"
+          },
+          "status": {
+            "type": "integer",
+            "description": "HTTP статус код",
+            "example": 404
           }
         }
       }

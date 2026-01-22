@@ -20,3 +20,11 @@ target/
 *.iws
 *.iml
 *.ipr
+
+# Ignore Gemini workspace files
+.gemini/
+
+# Ignore GitHub skills and Copilot instructions
+.github/skills/
+.github/copilot-instructions.md
+.github/workflows/skills/
